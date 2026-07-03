@@ -1,0 +1,40 @@
+name: Build WebDriverAgent IPA
+on:
+  workflow_dispatch: # Cho phép kích hoạt build thủ công bằng nút bấm trên giao diện GitHub
+jobs:
+  build-wda:
+    runs-on: macos-14 # Chạy trên máy ảo macOS mới nhất của GitHub
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Clone Appium WebDriverAgent
+        run: |
+          git clone https://github.com/appium/WebDriverAgent.git
+          cd WebDriverAgent
+          # Cài đặt các thư viện cần thiết
+          npm install
+      - name: Build WebDriverAgentRunner (No Code Signing)
+        run: |
+          cd WebDriverAgent
+          xcodebuild build-for-testing \
+            -scheme WebDriverAgentRunner \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build_output \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE=""
+      - name: Package to IPA for TrollStore
+        run: |
+          cd WebDriverAgent
+          mkdir -p Payload
+          # Sao chép file .app được tạo ra vào thư mục Payload
+          cp -r build_output/Build/Products/Debug-iphoneos/WebDriverAgentRunner-Runner.app Payload/
+          # Nén thư mục Payload thành file .ipa
+          zip -r WebDriverAgentRunner.ipa Payload
+          echo "Đã đóng gói thành công WebDriverAgentRunner.ipa"
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebDriverAgent-TrollStore
+          path: WebDriverAgent/WebDriverAgentRunner.ipa
