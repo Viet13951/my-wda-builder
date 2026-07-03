@@ -13,23 +13,24 @@ jobs:
           cd WebDriverAgent
           # Cài đặt các thư viện cần thiết
           npm install
-      - name: Build WebDriverAgentRunner (No Code Signing)
+      - name: Build WebDriverAgentRunner (Ad-Hoc Signing)
         run: |
           cd WebDriverAgent
           xcodebuild build-for-testing \
             -scheme WebDriverAgentRunner \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build_output \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            PROVISIONING_PROFILE=""
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES
       - name: Package to IPA for TrollStore
         run: |
           cd WebDriverAgent
           mkdir -p Payload
           # Sao chép file .app được tạo ra vào thư mục Payload
           cp -r build_output/Build/Products/Debug-iphoneos/WebDriverAgentRunner-Runner.app Payload/
+          # Xóa các file debug symbol (.dSYM) để tránh lỗi ldid trên TrollStore
+          find Payload -name "*.dSYM" -exec rm -rf {} +
           # Nén thư mục Payload thành file .ipa
           zip -r WebDriverAgentRunner.ipa Payload
           echo "Đã đóng gói thành công WebDriverAgentRunner.ipa"
