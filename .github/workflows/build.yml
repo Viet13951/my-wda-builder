@@ -23,7 +23,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            PROVISIONING_PROFILE=""
+            PROVISIONING_PROFILE="" \
+            OTHER_LDFLAGS="-Wl,-no_fixup_chains"
       - name: Package to IPA for TrollStore
         run: |
           cd WebDriverAgent
