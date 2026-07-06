@@ -1,0 +1,44 @@
+name: Build WebDriverAgent IPA iOS 26
+on:
+  workflow_dispatch: # Cho phép kích hoạt build thủ công bằng nút bấm trên giao diện GitHub
+jobs:
+  build-wda:
+    runs-on: macos-15 # Chạy trên máy ảo macOS 15 để có Xcode mới nhất hỗ trợ iOS 26
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Clone Appium WebDriverAgent
+        run: |
+          git clone https://github.com/appium/WebDriverAgent.git
+          cd WebDriverAgent
+          # Cài đặt các thư viện cần thiết
+          npm install
+      - name: Build WebDriverAgentRunner (No Code Signing)
+        run: |
+          cd WebDriverAgent
+          xcodebuild build-for-testing \
+            -scheme WebDriverAgentRunner \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build_output \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE=""
+      - name: Package to IPA
+        run: |
+          cd WebDriverAgent
+          mkdir -p Payload
+          # Sao chép file .app được tạo ra vào thư mục Payload
+          cp -r build_output/Build/Products/Debug-iphoneos/WebDriverAgentRunner-Runner.app Payload/
+          # Xóa các file debug symbol (.dSYM) để tránh lỗi cài đặt
+          find Payload -name "*.dSYM" -exec rm -rf {} +
+          # Ký Ad-Hoc bằng lệnh codesign trực tiếp bên ngoài Xcode
+          codesign --force --sign - --deep Payload/WebDriverAgentRunner-Runner.app
+          # Nén thư mục Payload thành file .ipa
+          zip -r WebDriverAgentRunner-iOS26.ipa Payload
+          echo "Đã đóng gói thành công WebDriverAgentRunner-iOS26.ipa"
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebDriverAgent-iOS26
+          path: WebDriverAgent/WebDriverAgentRunner-iOS26.ipa
