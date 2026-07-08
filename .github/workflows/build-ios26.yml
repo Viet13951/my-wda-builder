@@ -66,7 +66,17 @@ jobs:
           cp -r build_output/Build/Products/Debug-iphoneos/WebDriverAgentRunner-Runner.app Payload/
           # Xóa các file debug symbol (.dSYM) để tránh lỗi cài đặt
           find Payload -name "*.dSYM" -exec rm -rf {} +
-          # Ký Ad-Hoc bằng lệnh codesign trực tiếp bên ngoài Xcode
+          # ==== FIX iOS 17+/26 ====
+          # Xoa XCTest framework nhung san (build theo SDK 26.4) de app dung
+          # framework XCTest CUA CHINH MAY (iOS 26.5, tu DDI). Tranh crash
+          # testmanagerd o +[XCTRunnerDaemonSession sharedSession]. Can WDA >= v5.10.0.
+          APP=Payload/WebDriverAgentRunner-Runner.app
+          echo "== Frameworks TRUOC khi xoa =="; ls -1 "$APP/Frameworks/" || true
+          rm -rf "$APP"/Frameworks/XC*.framework
+          rm -rf "$APP"/Frameworks/Testing.framework
+          rm -rf "$APP"/Frameworks/libXCTestSwiftSupport.dylib
+          echo "== Frameworks SAU khi xoa (khong con XCTest/Testing) =="; ls -1 "$APP/Frameworks/" || true
+          # Ký Ad-Hoc lai (dong dau lai bundle sau khi da xoa framework)
           codesign --force --sign - --deep Payload/WebDriverAgentRunner-Runner.app
           # Nén thư mục Payload thành file .ipa
           zip -r WebDriverAgentRunner-iOS26.ipa Payload
