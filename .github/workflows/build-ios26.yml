@@ -1,18 +1,42 @@
 name: Build WebDriverAgent IPA iOS 26
 on:
-  workflow_dispatch: # Cho phép kích hoạt build thủ công bằng nút bấm trên giao diện GitHub
+  workflow_dispatch: # Kích hoạt thủ công bằng nút bấm trên GitHub
+    inputs:
+      runner:
+        description: 'macOS runner (macos-26 co Xcode kem iOS 26.5 SDK; macos-15 la du phong neu macos-26 chua san)'
+        type: choice
+        options:
+          - macos-26
+          - macos-15
+        default: macos-26
 jobs:
   build-wda:
-    runs-on: macos-15 # Chạy trên máy ảo macOS 15 để có Xcode mới nhất hỗ trợ iOS 26
+    runs-on: ${{ inputs.runner }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-      - name: Clone Appium WebDriverAgent
+
+      - name: Chon Xcode moi nhat va in iOS SDK co san
+        run: |
+          echo "== Cac ban Xcode co san tren runner =="
+          ls -d /Applications/Xcode_*.app 2>/dev/null || true
+          # Chon Xcode moi nhat da cai (de lay iOS SDK moi nhat)
+          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$LATEST" ]; then sudo xcode-select -s "$LATEST"; fi
+          echo "== Xcode dang dung =="
+          xcodebuild -version
+          echo "== iOS SDK co san (CAN THAY iphoneos26.5 o day) =="
+          xcodebuild -showsdks | grep -i iphoneos || true
+
+      - name: Clone Appium WebDriverAgent (ban moi nhat)
         run: |
           git clone https://github.com/appium/WebDriverAgent.git
           cd WebDriverAgent
-          # Cài đặt các thư viện cần thiết
+          echo "== WebDriverAgent commit =="
+          git log -1 --oneline
+          # Cai dat cac thu vien can thiet
           npm install
+
       - name: Build WebDriverAgentRunner (No Code Signing)
         run: |
           cd WebDriverAgent
@@ -24,6 +48,16 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             PROVISIONING_PROFILE=""
+
+      - name: Xac nhan app vua build cho iOS nao
+        run: |
+          cd WebDriverAgent
+          APP=build_output/Build/Products/Debug-iphoneos/WebDriverAgentRunner-Runner.app
+          echo "== Metadata build cua app (phai la 26.5) =="
+          /usr/libexec/PlistBuddy -c 'Print :DTSDKName' "$APP/Info.plist" || true
+          /usr/libexec/PlistBuddy -c 'Print :DTPlatformVersion' "$APP/Info.plist" || true
+          /usr/libexec/PlistBuddy -c 'Print :DTXcode' "$APP/Info.plist" || true
+
       - name: Package to IPA
         run: |
           cd WebDriverAgent
@@ -37,6 +71,7 @@ jobs:
           # Nén thư mục Payload thành file .ipa
           zip -r WebDriverAgentRunner-iOS26.ipa Payload
           echo "Đã đóng gói thành công WebDriverAgentRunner-iOS26.ipa"
+
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
